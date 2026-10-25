@@ -1,0 +1,8 @@
+{
+  "name": "Career Twin AI",
+  "description": "AI-Powered Career Guidance Platform for VITS CSM students providing personalized career recommendations, roadmaps, resume building, interview practice, and job exploration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
