@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   AssessmentResult,
   RoadmapTask,
@@ -14,6 +14,7 @@ import {
   CAREER_RECOMMENDATIONS_DATABASE,
 } from '../data/mockData';
 import { checkServerStatus, ServerStatus } from '../services/aiService';
+import { useAuth } from './AuthContext';
 
 interface CareerContextType {
   latestAssessment: AssessmentResult | null;
@@ -36,18 +37,12 @@ interface CareerContextType {
   serverStatus: ServerStatus | null;
   refreshServerStatus: () => Promise<void>;
   activeRecommendation: CareerRecommendation;
+  clearAllCareerData: () => void;
 }
 
 const CareerContext = createContext<CareerContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  ASSESSMENT: 'career_twin_assessment_v1',
-  HISTORY: 'career_twin_history_v1',
-  ROADMAP: 'career_twin_roadmap_v1',
-  JOBS: 'career_twin_jobs_v1',
-  INTERVIEWS: 'career_twin_interviews_v1',
-  RESUME: 'career_twin_resume_v1',
-};
+const PREFIX = 'career_twin_user_data_';
 
 const DEFAULT_ASSESSMENT: AssessmentResult = {
   id: 'assess-default-init',
@@ -67,7 +62,8 @@ const DEFAULT_ASSESSMENT: AssessmentResult = {
     CAREER_RECOMMENDATIONS_DATABASE['data-scientist'],
     CAREER_RECOMMENDATIONS_DATABASE['cloud-devops-engineer'],
   ],
-  personalitySummary: 'Analytical builder driven by model optimization, deep learning architecture, and robust web APIs. Demonstrates high readiness for 2026–2027 campus hiring.',
+  personalitySummary:
+    'Analytical builder driven by model optimization, deep learning architecture, and robust web APIs. Demonstrates high readiness for 2026–2027 campus hiring.',
   recommendedElectives: [
     'Deep Learning & NLP (CSM Core)',
     'Cloud Architecture & Microservices',
@@ -75,7 +71,76 @@ const DEFAULT_ASSESSMENT: AssessmentResult = {
   ],
 };
 
+const EMPTY_RESUME: ResumeData = {
+  id: 'resume-empty',
+  userId: '',
+  updatedAt: new Date().toISOString(),
+  template: 'classic',
+  personalInfo: {
+    fullName: '',
+    email: '',
+    phone: '',
+    location: '',
+    linkedin: '',
+    github: '',
+    portfolio: '',
+    summary: '',
+  },
+  education: [],
+  skills: [],
+  experience: [],
+  projects: [],
+  certifications: [],
+  achievements: [],
+};
+
+const createUserStarterResume = (u: any): ResumeData => ({
+  id: 'resume-' + u.id,
+  userId: u.id,
+  updatedAt: new Date().toISOString(),
+  template: 'classic',
+  personalInfo: {
+    fullName: u.fullName || '',
+    email: u.email || '',
+    phone: '',
+    location: 'Hyderabad, Telangana, India',
+    linkedin: u.linkedinUrl || '',
+    github: u.githubUrl || '',
+    portfolio: u.portfolioUrl || '',
+    summary: `Proactive ${u.semester || '3rd-year'} B.Tech student in ${u.department || 'CSM'} at ${u.college || 'Vignan Institute of Technology and Science'} with a ${u.cgpa || 8.5} CGPA. Aspiring ${u.targetRole || 'Software Development Engineer'}.`,
+  },
+  education: [
+    {
+      id: 'edu-' + u.id,
+      institution: u.college || 'Vignan Institute of Technology and Science, Deshmukhi',
+      degree: `B.Tech in ${u.department || 'CSM'}`,
+      fieldOfStudy: 'Computer Science & Machine Learning',
+      startDate: 'Aug 2023',
+      endDate: 'May 2027 (Expected)',
+      gradeOrCgpa: `${u.cgpa || 8.5} / 10.0 CGPA`,
+      highlights: 'Department coursework: Data Structures, Machine Learning, Deep Learning, Cloud Computing, Database Systems.',
+    },
+  ],
+  skills: [
+    {
+      category: 'Core Competencies',
+      items: u.skills && u.skills.length > 0 ? u.skills : ['Python', 'Data Structures & Algorithms', 'SQL'],
+    },
+    {
+      category: 'Interests & Focus Areas',
+      items: u.interests && u.interests.length > 0 ? u.interests : ['Artificial Intelligence', 'Software Engineering'],
+    },
+  ],
+  experience: [],
+  projects: [],
+  certifications: [],
+  achievements: [],
+});
+
 export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const userId = user ? user.id : 'guest';
+
   const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null);
 
   const refreshServerStatus = async () => {
@@ -87,50 +152,144 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshServerStatus();
   }, []);
 
+  // Helper storage accessors scoped strictly per user
+  const getUserKey = useCallback((suffix: string) => `${PREFIX}${userId}_${suffix}`, [userId]);
+
   // Assessment State
-  const [latestAssessment, setLatestAssessment] = useState<AssessmentResult | null>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.ASSESSMENT);
-      return stored ? JSON.parse(stored) : DEFAULT_ASSESSMENT;
-    } catch {
-      return DEFAULT_ASSESSMENT;
-    }
-  });
-
-  const [assessmentHistory, setAssessmentHistory] = useState<AssessmentResult[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.HISTORY);
-      return stored ? JSON.parse(stored) : [DEFAULT_ASSESSMENT];
-    } catch {
-      return [DEFAULT_ASSESSMENT];
-    }
-  });
-
-  const saveAssessment = (result: AssessmentResult) => {
-    setLatestAssessment(result);
-    setAssessmentHistory((prev) => [result, ...prev]);
-    localStorage.setItem(STORAGE_KEYS.ASSESSMENT, JSON.stringify(result));
-    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([result, ...assessmentHistory]));
-  };
+  const [latestAssessment, setLatestAssessment] = useState<AssessmentResult | null>(null);
+  const [assessmentHistory, setAssessmentHistory] = useState<AssessmentResult[]>([]);
 
   // Roadmap State
-  const [roadmapTasks, setRoadmapTasks] = useState<RoadmapTask[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.ROADMAP);
-      return stored ? JSON.parse(stored) : INITIAL_ROADMAP_TASKS;
-    } catch {
-      return INITIAL_ROADMAP_TASKS;
-    }
-  });
+  const [roadmapTasks, setRoadmapTasks] = useState<RoadmapTask[]>([]);
 
+  // Jobs State
+  const [jobs, setJobs] = useState<JobListing[]>([]);
+
+  // Interview Sessions State
+  const [interviewSessions, setInterviewSessions] = useState<InterviewSession[]>([]);
+
+  // Resume State - default to clean empty resume when unauthenticated
+  const [resume, setResume] = useState<ResumeData>(EMPTY_RESUME);
+
+  // Synchronous clearance of all user-specific active memory and state
+  const clearAllCareerData = useCallback(() => {
+    setLatestAssessment(null);
+    setAssessmentHistory([]);
+    setRoadmapTasks([]);
+    setJobs([]);
+    setInterviewSessions([]);
+    setResume(EMPTY_RESUME);
+  }, []);
+
+  // Sync state whenever the authenticated user changes or logs out
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ROADMAP, JSON.stringify(roadmapTasks));
-  }, [roadmapTasks]);
+    if (!user) {
+      // Clear all user-specific in-memory state immediately on logout
+      clearAllCareerData();
+      return;
+    }
 
+    // Load user-scoped Assessment
+    const storedAssessment = localStorage.getItem(getUserKey('assessment'));
+    const storedHistory = localStorage.getItem(getUserKey('history'));
+
+    if (storedAssessment) {
+      try {
+        setLatestAssessment(JSON.parse(storedAssessment));
+      } catch {
+        setLatestAssessment(null);
+      }
+    } else if (user.id === 'vits-csm-2026-001') {
+      setLatestAssessment(DEFAULT_ASSESSMENT);
+    } else {
+      setLatestAssessment(null);
+    }
+
+    if (storedHistory) {
+      try {
+        setAssessmentHistory(JSON.parse(storedHistory));
+      } catch {
+        setAssessmentHistory([]);
+      }
+    } else if (user.id === 'vits-csm-2026-001') {
+      setAssessmentHistory([DEFAULT_ASSESSMENT]);
+    } else {
+      setAssessmentHistory([]);
+    }
+
+    // Load user-scoped Roadmap
+    const storedRoadmap = localStorage.getItem(getUserKey('roadmap'));
+    if (storedRoadmap) {
+      try {
+        setRoadmapTasks(JSON.parse(storedRoadmap));
+      } catch {
+        setRoadmapTasks(INITIAL_ROADMAP_TASKS);
+      }
+    } else {
+      setRoadmapTasks(INITIAL_ROADMAP_TASKS);
+    }
+
+    // Load user-scoped Jobs
+    const storedJobs = localStorage.getItem(getUserKey('jobs'));
+    if (storedJobs) {
+      try {
+        setJobs(JSON.parse(storedJobs));
+      } catch {
+        setJobs(VERIFIED_JOB_LISTINGS);
+      }
+    } else {
+      setJobs(VERIFIED_JOB_LISTINGS);
+    }
+
+    // Load user-scoped Interviews
+    const storedInterviews = localStorage.getItem(getUserKey('interviews'));
+    if (storedInterviews) {
+      try {
+        setInterviewSessions(JSON.parse(storedInterviews));
+      } catch {
+        setInterviewSessions([]);
+      }
+    } else {
+      setInterviewSessions([]);
+    }
+
+    // Load user-scoped Resume
+    const storedResume = localStorage.getItem(getUserKey('resume'));
+    if (storedResume) {
+      try {
+        setResume(JSON.parse(storedResume));
+      } catch {
+        setResume(user.id === 'vits-csm-2026-001' ? DEFAULT_RESUME : createUserStarterResume(user));
+      }
+    } else if (user.id === 'vits-csm-2026-001') {
+      setResume(DEFAULT_RESUME);
+    } else {
+      setResume(createUserStarterResume(user));
+    }
+  }, [user, getUserKey, clearAllCareerData]);
+
+  // Assessment Savers
+  const saveAssessment = (result: AssessmentResult) => {
+    setLatestAssessment(result);
+    setAssessmentHistory((prev) => {
+      const updated = [result, ...prev];
+      if (user) {
+        localStorage.setItem(getUserKey('history'), JSON.stringify(updated));
+      }
+      return updated;
+    });
+    if (user) {
+      localStorage.setItem(getUserKey('assessment'), JSON.stringify(result));
+    }
+  };
+
+  // Roadmap actions
   const toggleTask = (taskId: string) => {
-    setRoadmapTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t))
-    );
+    setRoadmapTasks((prev) => {
+      const updated = prev.map((t) => (t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t));
+      if (user) localStorage.setItem(getUserKey('roadmap'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const addTask = (taskData: Omit<RoadmapTask, 'id'>) => {
@@ -139,44 +298,41 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: 'task-custom-' + Date.now(),
       isCustom: true,
     };
-    setRoadmapTasks((prev) => [newTask, ...prev]);
+    setRoadmapTasks((prev) => {
+      const updated = [newTask, ...prev];
+      if (user) localStorage.setItem(getUserKey('roadmap'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const deleteTask = (taskId: string) => {
-    setRoadmapTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setRoadmapTasks((prev) => {
+      const updated = prev.filter((t) => t.id !== taskId);
+      if (user) localStorage.setItem(getUserKey('roadmap'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const resetRoadmap = () => {
     setRoadmapTasks(INITIAL_ROADMAP_TASKS);
-    localStorage.setItem(STORAGE_KEYS.ROADMAP, JSON.stringify(INITIAL_ROADMAP_TASKS));
+    if (user) localStorage.setItem(getUserKey('roadmap'), JSON.stringify(INITIAL_ROADMAP_TASKS));
   };
 
-  // Jobs State
-  const [jobs, setJobs] = useState<JobListing[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.JOBS);
-      return stored ? JSON.parse(stored) : VERIFIED_JOB_LISTINGS;
-    } catch {
-      return VERIFIED_JOB_LISTINGS;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(jobs));
-  }, [jobs]);
-
+  // Jobs actions
   const toggleSaveJob = (jobId: string) => {
-    setJobs((prev) =>
-      prev.map((job) =>
+    setJobs((prev) => {
+      const updated = prev.map((job) =>
         job.id === jobId
           ? {
               ...job,
               isSaved: !job.isSaved,
-              applicationStatus: !job.isSaved ? (job.applicationStatus || 'Saved') : job.applicationStatus,
+              applicationStatus: !job.isSaved ? job.applicationStatus || 'Saved' : job.applicationStatus,
             }
           : job
-      )
-    );
+      );
+      if (user) localStorage.setItem(getUserKey('jobs'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const updateJobStatus = (
@@ -184,8 +340,8 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     status: JobListing['applicationStatus'],
     notes?: string
   ) => {
-    setJobs((prev) =>
-      prev.map((job) =>
+    setJobs((prev) => {
+      const updated = prev.map((job) =>
         job.id === jobId
           ? {
               ...job,
@@ -194,8 +350,10 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               notes: notes !== undefined ? notes : job.notes,
             }
           : job
-      )
-    );
+      );
+      if (user) localStorage.setItem(getUserKey('jobs'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const addCustomJob = (jobData: Partial<JobListing>) => {
@@ -217,82 +375,42 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       applicationStatus: jobData.applicationStatus || 'Applied',
       notes: jobData.notes || '',
     };
-    setJobs((prev) => [newJob, ...prev]);
+    setJobs((prev) => {
+      const updated = [newJob, ...prev];
+      if (user) localStorage.setItem(getUserKey('jobs'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  // Interview Sessions State
-  const [interviewSessions, setInterviewSessions] = useState<InterviewSession[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.INTERVIEWS);
-      return stored
-        ? JSON.parse(stored)
-        : [
-            {
-              id: 'session-demo-01',
-              timestamp: '2026-10-22T14:30:00Z',
-              questionId: 'q-ai-01',
-              questionText: 'Explain the bias-variance tradeoff and how regularization techniques affect both.',
-              role: 'AI & Machine Learning Engineer',
-              category: 'ML Theory',
-              userAnswer:
-                'The bias variance tradeoff is about finding the sweet spot between an underfitted model and an overfitted model. High bias means the model is too simple and misses trends. High variance means it captures random noise in the training set. L2 regularization adds weight decay to smooth parameters, whereas L1 creates sparsity by pushing coefficients strictly to zero.',
-              timeSpentSeconds: 115,
-              feedback: {
-                scoreOverall: 88,
-                scores: {
-                  relevance: 92,
-                  clarity: 90,
-                  completeness: 85,
-                  technicalDepth: 85,
-                },
-                strengths: [
-                  'Clearly contrasted underfitting versus overfitting.',
-                  'Accurately defined L1 feature sparsity vs L2 weight shrinkage.',
-                ],
-                areasForImprovement: [
-                  'Mention mathematical formulation of the loss function (lambda term).',
-                  'Give an example with high-dimensional feature selection.',
-                ],
-                sampleAnswer:
-                  'Bias is the error from simplifying assumptions; variance is error from sensitivity to training data fluctuations. Regularization penalizes loss: L1 (Lasso) drives weights to zero, L2 (Ridge) penalizes squared magnitude.',
-              },
-              isLiveAI: false,
-            },
-          ];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.INTERVIEWS, JSON.stringify(interviewSessions));
-  }, [interviewSessions]);
-
+  // Interview actions
   const saveInterviewSession = (session: InterviewSession) => {
-    setInterviewSessions((prev) => [session, ...prev]);
+    setInterviewSessions((prev) => {
+      const updated = [session, ...prev];
+      if (user) localStorage.setItem(getUserKey('interviews'), JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  // Resume State
-  const [resume, setResume] = useState<ResumeData>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.RESUME);
-      return stored ? JSON.parse(stored) : DEFAULT_RESUME;
-    } catch {
-      return DEFAULT_RESUME;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.RESUME, JSON.stringify(resume));
-  }, [resume]);
-
+  // Resume actions
   const updateResume = (newResume: ResumeData) => {
     setResume(newResume);
+    if (user) localStorage.setItem(getUserKey('resume'), JSON.stringify(newResume));
   };
 
   const resetResume = () => {
-    setResume(DEFAULT_RESUME);
-    localStorage.setItem(STORAGE_KEYS.RESUME, JSON.stringify(DEFAULT_RESUME));
+    const base = user
+      ? {
+          ...DEFAULT_RESUME,
+          userId: user.id,
+          personalInfo: {
+            ...DEFAULT_RESUME.personalInfo,
+            fullName: user.fullName,
+            email: user.email,
+          },
+        }
+      : DEFAULT_RESUME;
+    setResume(base);
+    if (user) localStorage.setItem(getUserKey('resume'), JSON.stringify(base));
   };
 
   const activeRecommendation =
@@ -321,6 +439,7 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         serverStatus,
         refreshServerStatus,
         activeRecommendation,
+        clearAllCareerData,
       }}
     >
       {children}

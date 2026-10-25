@@ -11,6 +11,7 @@ import {
   ChevronRight,
   GraduationCap,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
 import { useCareer } from '../../context/CareerContext';
 import { useAuth } from '../../context/AuthContext';
@@ -29,7 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
 }) => {
   const { roadmapTasks, jobs, interviewSessions } = useCareer();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const completedTasksCount = roadmapTasks.filter((t) => t.isCompleted).length;
   const totalTasksCount = roadmapTasks.length;
@@ -196,6 +197,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
+
+        {/* Visible Logout Button in Sidebar */}
+        {user && (
+          <div className="p-3 border-t border-slate-800 bg-slate-950/70">
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                setCurrentView('login');
+                if (window.innerWidth < 1024) {
+                  setIsOpen(false);
+                }
+              }}
+              className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 text-xs font-bold rounded-xl text-rose-300 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 transition-all shadow-xs cursor-pointer"
+              title="Sign out of student account"
+            >
+              <LogOut className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>Sign Out / Logout</span>
+            </button>
+          </div>
+        )}
 
         {/* Bottom CTA / Academic Footer */}
         <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">

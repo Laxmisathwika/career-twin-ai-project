@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   GraduationCap,
@@ -11,12 +11,16 @@ import {
   BookOpen,
   Award,
   Layers,
+  X,
+  ShieldCheck,
+  AlertCircle,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCareer } from '../../context/CareerContext';
 
 export const ProfileView: React.FC = () => {
-  const { user, updateProfile, resetDemoUser } = useAuth();
+  const { user, updateProfile, authConfig, logout } = useAuth();
   const { serverStatus } = useCareer();
 
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -25,7 +29,7 @@ export const ProfileView: React.FC = () => {
   const [college, setCollege] = useState(user?.college || '');
   const [department, setDepartment] = useState(user?.department || '');
   const [semester, setSemester] = useState(user?.semester || '');
-  const [cgpa, setCgpa] = useState(user?.cgpa?.toString() || '8.5');
+  const [cgpa, setCgpa] = useState(user?.cgpa !== undefined ? user.cgpa.toString() : '8.50');
   const [targetRole, setTargetRole] = useState(user?.targetRole || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [skillsStr, setSkillsStr] = useState(user?.skills?.join(', ') || '');
@@ -36,55 +40,133 @@ export const ProfileView: React.FC = () => {
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Sync state whenever user changes or page is revisited
+  useEffect(() => {
+    if (user) {
+      setFullName(user.fullName || '');
+      setEmail(user.email || '');
+      setRollNumber(user.rollNumber || '');
+      setCollege(user.college || '');
+      setDepartment(user.department || '');
+      setSemester(user.semester || '');
+      setCgpa(user.cgpa !== undefined ? user.cgpa.toString() : '');
+      setTargetRole(user.targetRole || '');
+      setBio(user.bio || '');
+      setSkillsStr(user.skills ? user.skills.join(', ') : '');
+      setInterestsStr(user.interests ? user.interests.join(', ') : '');
+      setGithubUrl(user.githubUrl || '');
+      setLinkedinUrl(user.linkedinUrl || '');
+      setPortfolioUrl(user.portfolioUrl || '');
+    } else {
+      setFullName('');
+      setEmail('');
+      setRollNumber('');
+      setCollege('');
+      setDepartment('');
+      setSemester('');
+      setCgpa('');
+      setTargetRole('');
+      setBio('');
+      setSkillsStr('');
+      setInterestsStr('');
+      setGithubUrl('');
+      setLinkedinUrl('');
+      setPortfolioUrl('');
+    }
+  }, [user]);
+
+  // Cancel / Discard unsaved changes
+  const handleCancel = () => {
+    if (user) {
+      setFullName(user.fullName || '');
+      setEmail(user.email || '');
+      setRollNumber(user.rollNumber || '');
+      setCollege(user.college || '');
+      setDepartment(user.department || '');
+      setSemester(user.semester || '');
+      setCgpa(user.cgpa !== undefined ? user.cgpa.toString() : '');
+      setTargetRole(user.targetRole || '');
+      setBio(user.bio || '');
+      setSkillsStr(user.skills ? user.skills.join(', ') : '');
+      setInterestsStr(user.interests ? user.interests.join(', ') : '');
+      setGithubUrl(user.githubUrl || '');
+      setLinkedinUrl(user.linkedinUrl || '');
+      setPortfolioUrl(user.portfolioUrl || '');
+    }
+    setErrorMsg('');
+    setSavedSuccess(false);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setSavedSuccess(false);
 
-    if (!fullName.trim() || !email.trim()) {
-      setErrorMsg('Full Name and Email are mandatory.');
+    const trimmedName = fullName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setErrorMsg('Full Name must be at least 2 characters long.');
+      return;
+    }
+
+    const trimmedRoll = rollNumber.trim().toUpperCase();
+    if (!trimmedRoll || trimmedRoll.length < 3) {
+      setErrorMsg('Please enter a valid Roll Number.');
       return;
     }
 
     const parsedCgpa = parseFloat(cgpa);
     if (isNaN(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > 10) {
-      setErrorMsg('Please enter a valid CGPA between 0.00 and 10.00');
+      setErrorMsg('Please enter a valid CGPA between 0.00 and 10.00.');
       return;
     }
 
-    updateProfile({
-      fullName: fullName.trim(),
-      email: email.trim(),
-      rollNumber: rollNumber.trim(),
-      college: college.trim(),
-      department: department.trim(),
-      semester: semester.trim(),
-      cgpa: parsedCgpa,
-      targetRole: targetRole.trim(),
-      bio: bio.trim(),
-      skills: skillsStr.split(',').map((s) => s.trim()).filter(Boolean),
-      interests: interestsStr.split(',').map((s) => s.trim()).filter(Boolean),
-      githubUrl: githubUrl.trim(),
-      linkedinUrl: linkedinUrl.trim(),
-      portfolioUrl: portfolioUrl.trim(),
-    });
+    setIsSaving(true);
+    try {
+      const res = await updateProfile({
+        fullName: trimmedName,
+        rollNumber: trimmedRoll,
+        college: college.trim(),
+        department: department.trim(),
+        semester: semester.trim(),
+        cgpa: parsedCgpa,
+        targetRole: targetRole.trim(),
+        bio: bio.trim(),
+        skills: skillsStr.split(',').map((s) => s.trim()).filter(Boolean),
+        interests: interestsStr.split(',').map((s) => s.trim()).filter(Boolean),
+        githubUrl: githubUrl.trim(),
+        linkedinUrl: linkedinUrl.trim(),
+        portfolioUrl: portfolioUrl.trim(),
+      });
 
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+      if (res.success) {
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 3000);
+      } else {
+        setErrorMsg(res.error || 'Failed to save profile changes.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error occurred while saving profile.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportBackup = () => {
+    if (!user) return;
     const data = {
       profile: user,
       exportedAt: new Date().toISOString(),
       institution: 'Vignan Institute of Technology and Science, Deshmukhi',
+      department: user.department,
       academicYear: '2026–2027',
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Career_Twin_${user?.rollNumber || 'student'}_profile.json`;
+    a.download = `Career_Twin_${user.rollNumber || 'student'}_profile.json`;
     a.click();
   };
 
@@ -97,7 +179,12 @@ export const ProfileView: React.FC = () => {
             {fullName ? fullName.slice(0, 2).toUpperCase() : 'ST'}
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">{fullName || 'Student Profile'}</h2>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-xl font-bold text-slate-900">{fullName || 'Student Profile'}</h2>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                Active Account
+              </span>
+            </div>
             <p className="text-xs text-slate-500 mt-0.5">
               Roll No: <strong>{rollNumber}</strong> • {department}
             </p>
@@ -111,19 +198,10 @@ export const ProfileView: React.FC = () => {
           <button
             type="button"
             onClick={handleExportBackup}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center space-x-1.5"
+            className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center space-x-1.5"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export Backup</span>
-          </button>
-          <button
-            type="button"
-            onClick={resetDemoUser}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center space-x-1"
-            title="Reset to default VITS CSM student"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Demo</span>
           </button>
         </div>
       </div>
@@ -131,23 +209,30 @@ export const ProfileView: React.FC = () => {
       {/* Main Profile Form */}
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
         {errorMsg && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
-            {errorMsg}
+          <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
         {savedSuccess && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center space-x-2">
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center space-x-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Student profile updated successfully in local session storage!</span>
+            <span className="font-semibold">
+              Profile changes saved successfully! Updates persist across page refreshes and sessions.
+            </span>
           </div>
         )}
 
         {/* Section 1: Academic Identity */}
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-            1. Academic Identity (VITS CSM)
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              1. Academic Identity (VITS CSM)
+            </h3>
+            <span className="text-[11px] text-slate-400">Account ID: {user?.id}</span>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name *</label>
@@ -162,24 +247,25 @@ export const ProfileView: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                College Email *
+                College Email (Read-Only)
               </label>
               <input
                 type="email"
-                required
+                disabled
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed"
+                title="Account email cannot be modified"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Roll Number</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Roll Number *</label>
               <input
                 type="text"
+                required
                 value={rollNumber}
                 onChange={(e) => setRollNumber(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden font-mono"
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden font-mono uppercase"
               />
             </div>
 
@@ -214,12 +300,15 @@ export const ProfileView: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Current CGPA</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Current CGPA *
+                </label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   max="10"
+                  required
                   value={cgpa}
                   onChange={(e) => setCgpa(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-hidden font-bold"
@@ -327,17 +416,63 @@ export const ProfileView: React.FC = () => {
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="pt-4 border-t border-slate-200 flex justify-end">
+        {/* Action Buttons: Cancel and Save Changes */}
+        <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={isSaving}
+            className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors flex items-center space-x-1.5"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Cancel & Discard Changes</span>
+          </button>
+
           <button
             type="submit"
-            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-2 transition-colors"
+            disabled={isSaving}
+            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-2 transition-colors cursor-pointer"
           >
-            <Save className="w-4 h-4" />
-            <span>Save Profile Updates</span>
+            {isSaving ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Saving Changes...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save Changes</span>
+              </>
+            )}
           </button>
         </div>
       </form>
+
+      {/* Account & Session Management */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-indigo-600" />
+              <span>Account & Active Session</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Signed in as <strong className="text-slate-800">{user?.fullName || 'Active Student'}</strong> ({user?.email})
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await logout();
+            }}
+            className="inline-flex items-center space-x-2 px-4 py-2.5 text-xs font-bold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-800 border border-rose-200 transition-colors shadow-2xs cursor-pointer"
+            title="Sign out of student account"
+          >
+            <LogOut className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>Sign Out / Logout</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

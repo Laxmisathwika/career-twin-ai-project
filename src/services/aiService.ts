@@ -171,42 +171,7 @@ export async function analyzeCareerAssessment(
   answers: Record<number, number>,
   profile: any
 ): Promise<{ result: AssessmentResult; isLiveAI: boolean }> {
-  try {
-    const res = await fetch('/api/career/assess', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers, studentProfile: profile }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.result && data.result.topRecommendations) {
-        return {
-          result: {
-            id: 'assess-' + Date.now(),
-            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            overallScore: 92,
-            dimensions: {
-              aiMl: 92,
-              fullstack: 88,
-              cloudDevops: 79,
-              dataScience: 85,
-              cybersecurity: 68,
-              productDesign: 74,
-            },
-            topRecommendations: data.result.topRecommendations,
-            personalitySummary: data.result.personalitySummary || 'Analytical problem solver with strong engineering curiosity.',
-            recommendedElectives: data.result.recommendedFocusElectives || ['Deep Learning & NLP', 'Cloud Architecture'],
-          },
-          isLiveAI: Boolean(data.isLiveAI),
-        };
-      }
-    }
-  } catch (e) {
-    console.warn('Live assessment analyzer failed, using rule-based career matrix');
-  }
-
-  // Calculate scores deterministically
+  // First, calculate transparent dimension scores deterministically from actual selected answers
   const dimensionTotals = {
     aiMl: 0,
     fullstack: 0,
@@ -234,15 +199,48 @@ export async function analyzeCareerAssessment(
 
   const factor = maxPossible > 0 ? 100 / maxPossible : 1;
   const normalizedDimensions = {
-    aiMl: Math.min(98, Math.max(50, Math.round(dimensionTotals.aiMl * factor * 1.6))),
-    fullstack: Math.min(98, Math.max(50, Math.round(dimensionTotals.fullstack * factor * 1.6))),
-    cloudDevops: Math.min(98, Math.max(50, Math.round(dimensionTotals.cloudDevops * factor * 1.6))),
-    dataScience: Math.min(98, Math.max(50, Math.round(dimensionTotals.dataScience * factor * 1.6))),
-    cybersecurity: Math.min(98, Math.max(50, Math.round(dimensionTotals.cybersecurity * factor * 1.6))),
-    productDesign: Math.min(98, Math.max(50, Math.round(dimensionTotals.productDesign * factor * 1.6))),
+    aiMl: Math.min(98, Math.max(45, Math.round(dimensionTotals.aiMl * factor * 1.6))),
+    fullstack: Math.min(98, Math.max(45, Math.round(dimensionTotals.fullstack * factor * 1.6))),
+    cloudDevops: Math.min(98, Math.max(45, Math.round(dimensionTotals.cloudDevops * factor * 1.6))),
+    dataScience: Math.min(98, Math.max(45, Math.round(dimensionTotals.dataScience * factor * 1.6))),
+    cybersecurity: Math.min(98, Math.max(45, Math.round(dimensionTotals.cybersecurity * factor * 1.6))),
+    productDesign: Math.min(98, Math.max(45, Math.round(dimensionTotals.productDesign * factor * 1.6))),
   };
 
-  // Rank recommendations
+  const calculatedOverallScore = Math.round(
+    (normalizedDimensions.aiMl + normalizedDimensions.fullstack + normalizedDimensions.dataScience + normalizedDimensions.cloudDevops) / 4
+  );
+
+  // Try live AI endpoint with actual computed dimension scores
+  try {
+    const res = await fetch('/api/career/assess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers, studentProfile: profile, dimensions: normalizedDimensions }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.result && data.result.topRecommendations) {
+        return {
+          result: {
+            id: 'assess-' + Date.now(),
+            date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            overallScore: calculatedOverallScore,
+            dimensions: normalizedDimensions,
+            topRecommendations: data.result.topRecommendations,
+            personalitySummary: data.result.personalitySummary || 'Analytical problem solver with strong engineering curiosity.',
+            recommendedElectives: data.result.recommendedFocusElectives || ['Deep Learning & NLP', 'Cloud Architecture'],
+          },
+          isLiveAI: Boolean(data.isLiveAI),
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Live assessment analyzer failed, using rule-based career matrix');
+  }
+
+  // Fallback: Rank recommendations strictly based on actual dimension scores
   const ranked = [
     { ...CAREER_RECOMMENDATIONS_DATABASE['ai-ml-engineer'], matchScore: normalizedDimensions.aiMl },
     { ...CAREER_RECOMMENDATIONS_DATABASE['fullstack-developer'], matchScore: normalizedDimensions.fullstack },

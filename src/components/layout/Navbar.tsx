@@ -112,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden md:inline">Career Bot</span>
             </button>
 
-            {/* User Profile or Sign In */}
+            {/* User Profile or Sign In / Register */}
             {isAuthenticated && user ? (
               <div className="flex items-center space-x-2 pl-2 border-l border-slate-200">
                 <button
@@ -132,21 +132,35 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 </button>
                 <button
-                  onClick={logout}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                  title="Logout"
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    setCurrentView('login');
+                  }}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 hover:text-rose-800 border border-rose-200 transition-all shadow-2xs cursor-pointer"
+                  title="Sign out of student account"
+                  aria-label="Sign out of account"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Logout</span>
                 </button>
               </div>
             ) : (
-              <button
-                onClick={onOpenAuth}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-xs"
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Student Login</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setCurrentView('login')}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 border border-slate-300 transition-colors"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Login</span>
+                </button>
+                <button
+                  onClick={() => setCurrentView('register')}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-xs"
+                >
+                  <span>Register</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

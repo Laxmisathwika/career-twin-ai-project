@@ -76,21 +76,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStart, onOpenAuth })
 
             {/* CTAs */}
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                onClick={() => onStart('assessment')}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md shadow-slate-900/10 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02]"
-              >
-                <Compass className="w-4 h-4 text-indigo-400" />
-                <span>Start AI Career Assessment</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </button>
+              {!isAuthenticated ? (
+                <>
+                  <button
+                    onClick={() => onStart('register')}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-600/20 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02]"
+                  >
+                    <span>Register Student Account</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
 
-              <button
-                onClick={() => onStart('dashboard')}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm border border-slate-300 shadow-xs flex items-center justify-center space-x-2 transition-all"
-              >
-                <span>Launch Student Dashboard</span>
-              </button>
+                  <button
+                    onClick={() => onStart('login')}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm border border-slate-800 shadow-xs flex items-center justify-center space-x-2 transition-all"
+                  >
+                    <span>Student Sign In</span>
+                  </button>
+
+                  <button
+                    onClick={() => onStart('assessment')}
+                    className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm border border-slate-300 shadow-xs flex items-center justify-center space-x-2 transition-all"
+                  >
+                    <Compass className="w-4 h-4 text-indigo-600" />
+                    <span>Try Career Assessment</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => onStart('dashboard')}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-md shadow-slate-900/10 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02]"
+                  >
+                    <span>Launch Student Dashboard</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+
+                  <button
+                    onClick={() => onStart('assessment')}
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm border border-slate-300 shadow-xs flex items-center justify-center space-x-2 transition-all"
+                  >
+                    <Compass className="w-4 h-4 text-indigo-600" />
+                    <span>Start AI Career Assessment</span>
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Micro stats */}

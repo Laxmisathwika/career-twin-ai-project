@@ -71,14 +71,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Welcome back, {user?.fullName || 'Student'}!
+            {user?.fullName ? `Welcome back, ${user.fullName}!` : 'Welcome to Career Twin AI'}
           </h1>
           <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-            Your personalized AI career twin is tracking your readiness for the 2026–2027 campus hiring
-            cycle. Target Path:{' '}
-            <strong className="text-indigo-300 font-semibold">
-              {topRole?.title || user?.targetRole || 'AI & Machine Learning Engineer'}
-            </strong>
+            {user ? (
+              <>
+                Your personalized AI career twin is tracking your readiness for the 2026–2027 campus hiring
+                cycle. Target Path:{' '}
+                <strong className="text-indigo-300 font-semibold">
+                  {topRole?.title || user.targetRole || 'AI & Machine Learning Engineer'}
+                </strong>
+              </>
+            ) : (
+              'Empowering VITS CSM engineering students with personalized career recommendations, learning roadmaps, resume building, and placement preparation.'
+            )}
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">

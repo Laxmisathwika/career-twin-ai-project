@@ -20,11 +20,18 @@ export const CareerChatView: React.FC = () => {
   const { user } = useAuth();
   const { serverStatus } = useCareer();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `Hello ${user?.fullName || 'Student'}! I am your **Career Twin AI** advisor for **Vignan Institute of Technology & Science (CSM Department)**.
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Update greeting and reset messages when user changes or logs out
+  useEffect(() => {
+    const greeting = user?.fullName
+      ? `Hello ${user.fullName}!`
+      : 'Welcome to Career Twin AI!';
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: `${greeting} I am your **Career Twin AI** advisor for **Vignan Institute of Technology & Science (CSM Department)**.
       
 I'm here to help you navigate:
 - **Campus Placements (2026–2027)**: Preparation plans for TCS Digital, Cognizant, Microsoft, and tech startups.
@@ -33,10 +40,11 @@ I'm here to help you navigate:
 - **Interview Tactics**: Technical deep-dives, System Design, and STAR behavioral answers.
 
 How can I help you today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isLiveAI: serverStatus?.aiConfigured,
-    },
-  ]);
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isLiveAI: serverStatus?.aiConfigured,
+      },
+    ]);
+  }, [user, serverStatus?.aiConfigured]);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);

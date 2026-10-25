@@ -30,16 +30,9 @@ export const AssessmentView: React.FC = () => {
     latestAssessment ? 'result' : 'quiz'
   );
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({
-    1: 0,
-    2: 0,
-    3: 0,
-    4: 0,
-    5: 0,
-    6: 0,
-    7: 0,
-    8: 0,
-  });
+  // Do NOT preselect any answers - start completely unselected
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [validationWarning, setValidationWarning] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLiveAIUsed, setIsLiveAIUsed] = useState(false);
   const [viewingHistoryItem, setViewingHistoryItem] = useState<AssessmentResult | null>(null);
@@ -53,17 +46,38 @@ export const AssessmentView: React.FC = () => {
       ...prev,
       [currentQ.id]: optionIdx,
     }));
+    setValidationWarning('');
   };
 
   const handleNext = () => {
+    // Validate that current question has been answered
+    if (selectedAnswers[currentQ.id] === undefined) {
+      setValidationWarning('Please select an answer option to continue to the next question.');
+      return;
+    }
+    setValidationWarning('');
+
     if (currentQuestionIdx < totalQuestions - 1) {
       setCurrentQuestionIdx((prev) => prev + 1);
     } else {
+      // Validate all required questions before final submission
+      const unanswered = ASSESSMENT_QUESTIONS.filter((q) => selectedAnswers[q.id] === undefined);
+      if (unanswered.length > 0) {
+        setValidationWarning(
+          `Please answer all questions before submitting. Question ${unanswered[0].id} is unanswered.`
+        );
+        const firstUnansweredIndex = ASSESSMENT_QUESTIONS.findIndex((q) => q.id === unanswered[0].id);
+        if (firstUnansweredIndex !== -1) {
+          setCurrentQuestionIdx(firstUnansweredIndex);
+        }
+        return;
+      }
       handleSubmitAssessment();
     }
   };
 
   const handleBack = () => {
+    setValidationWarning('');
     if (currentQuestionIdx > 0) {
       setCurrentQuestionIdx((prev) => prev - 1);
     }
@@ -84,7 +98,11 @@ export const AssessmentView: React.FC = () => {
   };
 
   const handleRetake = () => {
+    // Completely reset previous selections when starting a new assessment
+    setSelectedAnswers({});
     setCurrentQuestionIdx(0);
+    setValidationWarning('');
+    setViewingHistoryItem(null);
     setMode('quiz');
   };
 
@@ -171,38 +189,48 @@ export const AssessmentView: React.FC = () => {
             <p className="text-xs text-slate-500">{currentQ.description}</p>
           </div>
 
+          {/* Validation Notice */}
+          {validationWarning && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="font-semibold">{validationWarning}</span>
+            </div>
+          )}
+
           {/* Options */}
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-1">
             {currentQ.options.map((option, idx) => {
-              const isSelected = selectedAnswers[currentQ.id] === idx;
+              const isSelected = selectedAnswers[currentQ.id] !== undefined && selectedAnswers[currentQ.id] === idx;
               return (
-                <div
+                <label
                   key={idx}
+                  htmlFor={`q_${currentQ.id}_opt_${idx}`}
                   onClick={() => handleSelectOption(idx)}
                   className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start space-x-3.5 ${
                     isSelected
-                      ? 'border-indigo-600 bg-indigo-50/50 shadow-xs'
+                      ? 'border-indigo-600 bg-indigo-50/50 shadow-xs ring-1 ring-indigo-500/30'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
-                  <div
-                    className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      isSelected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'
-                    }`}
-                  >
-                    {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
-                  </div>
+                  <input
+                    type="radio"
+                    id={`q_${currentQ.id}_opt_${idx}`}
+                    name={`question_${currentQ.id}`}
+                    checked={isSelected}
+                    onChange={() => handleSelectOption(idx)}
+                    className="mt-0.5 w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 shrink-0"
+                  />
                   <div className="flex-1">
                     <p
-                      className={`text-sm font-semibold leading-tight ${
-                        isSelected ? 'text-indigo-950 font-bold' : 'text-slate-800'
+                      className={`text-sm leading-tight ${
+                        isSelected ? 'text-indigo-950 font-bold' : 'text-slate-800 font-semibold'
                       }`}
                     >
                       {option.label}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">{option.description}</p>
                   </div>
-                </div>
+                </label>
               );
             })}
           </div>
